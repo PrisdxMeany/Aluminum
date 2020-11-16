@@ -83,6 +83,7 @@ inline int set_device() {
     abort();
   }    
   int device = local_rank;
+  //NOTE cudaSetDevice()设置用以执行当前代码的设备编号
   AL_FORCE_CHECK_CUDA_NOSYNC(cudaSetDevice(device));
   return device;
 }

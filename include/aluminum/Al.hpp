@@ -108,13 +108,17 @@ bool Initialized();
  * @param comm The communicator to reduce over.
  * @param algo Request a particular allreduce algorithm.
  */
+
+// NOTE 常规的Allreduce算法
 template <typename Backend, typename T>
 void Allreduce(const T* sendbuf, T* recvbuf, size_t count,
                ReductionOperator op, typename Backend::comm_type& comm,
                typename Backend::allreduce_algo_type algo =
                Backend::allreduce_algo_type::automatic) {
+  // NOTE 将操作记录 主要记录操作类型，通信环境，发送接收缓冲区，数据量
   internal::trace::record_op<Backend, T>("allreduce", comm, sendbuf, recvbuf,
                                          count);
+  // DOUBT 这里干了啥 生成了allreduce函数 还是直接执行了allreduce算法，具体代码在哪
   Backend::template Allreduce<T>(sendbuf, recvbuf, count, op, comm, algo);
 }
 

@@ -113,7 +113,9 @@ void Initialize(int& argc, char**& argv) {
   if (is_initialized) {
     return;
   }
+  //NOTE 初始化MPI
   internal::mpi::init(argc, argv);
+  //DOUBT ProgressEngine()
   progress_engine = new internal::ProgressEngine();
   progress_engine->run();
   is_initialized = true;
@@ -124,6 +126,7 @@ void Initialize(int& argc, char**& argv) {
   internal::nccl::init(argc, argv);
 #endif
 #ifdef AL_HAS_MPI_CUDA
+//DOUBT MPI CUDA 和 CUDA有啥区别 是不是可以类比 MPI支持UCX 和 直接UCX的区别
   internal::mpi_cuda::init(argc, argv);
 #endif
 #ifdef AL_HAS_HOST_TRANSFER

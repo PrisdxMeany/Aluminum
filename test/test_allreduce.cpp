@@ -52,6 +52,7 @@ void test_allreduce_algo(const typename VectorType<Backend>::type& expected,
                          typename Backend::allreduce_algo_type algo) {
   auto recv = get_vector<Backend>(input.size());
   // Test regular allreduce.
+  // NOTE 代码主要学习部分 Allreduce算法如何进行的
   Al::Allreduce<Backend>(input.data(), recv.data(), input.size(),
                          Al::ReductionOperator::sum, comm, algo);
   if (!check_vector(expected, recv)) {
@@ -61,6 +62,7 @@ void test_allreduce_algo(const typename VectorType<Backend>::type& expected,
   }
   MPI_Barrier(MPI_COMM_WORLD);
   // Test in-place allreduce.
+  // DOUBT 啥叫in-place，是指接收的缓冲区就是发送的缓冲区吗
   Al::Allreduce<Backend>(input.data(), input.size(),
                          Al::ReductionOperator::sum, comm, algo);
   if (!check_vector(expected, input)) {
@@ -105,6 +107,8 @@ void test_nb_allreduce_algo(const typename VectorType<Backend>::type& expected,
 
 template <typename Backend>
 void test_correctness() {
+  //DOUBT 这三个函数作用
+  //ANSWER 第一个是获取阻塞的allreduce算法的，可以有多个，第二个是获取非阻塞的算法的，第三个猜测是文中提到将通信和计算绑定的
   auto algos = get_allreduce_algorithms<Backend>();
   auto nb_algos = get_nb_allreduce_algorithms<Backend>();
   typename Backend::comm_type comm = get_comm_with_stream<Backend>(MPI_COMM_WORLD);
@@ -112,18 +116,23 @@ void test_correctness() {
   std::vector<size_t> sizes = get_sizes(start_size, max_size, true);
   for (const auto& size : sizes) {
     if (comm.rank() == 0) {
+      //NOTE 这命名挺好
       std::cout << "Testing size " << human_readable_size(size) << std::endl;
     }
     // Compute true value.
     typename VectorType<Backend>::type &&data = gen_data<Backend>(size);
+    //NOTE 获取期望的结果
     auto expected(data);
     get_expected_allreduce_result(expected);
     // Test algorithms.
+    //DOUBT 不止一种Allreduce算法？
     for (auto&& algo : algos) {
+      //DOUBT 这里还是用的MPI 所以Backend到底是指的啥 通信时使用的库？
       MPI_Barrier(MPI_COMM_WORLD);
       if (comm.rank() == 0) {
         std::cout << " Algo: " << Al::algorithm_name(algo) << std::endl;
       }
+      //NOTE 测试allreduce阻塞算法
       test_allreduce_algo<Backend>(expected, data, comm, algo);
     }
     for (auto&& algo : nb_algos) {
@@ -131,22 +140,29 @@ void test_correctness() {
       if (comm.rank() == 0) {
         std::cout << " Algo: NB " << Al::algorithm_name(algo) << std::endl;
       }
+      //NOTE 测试allreduce非阻塞算法
       test_nb_allreduce_algo<Backend>(expected, data, comm, algo);
     }
   }
+  //NOTE 与前面get_comm_with_stream()对应
   free_comm_with_stream<Backend>(comm);
 }
 
+
+//allreduce测试代码
 int main(int argc, char** argv) {
   // Need to set the CUDA device before initializing Aluminum.
+//需要预先设置相关的设备
+
 #ifdef AL_HAS_CUDA
+//NOTE 主要是CUDA设备的初始化
   set_device();
 #endif
   Al::Initialize(argc, argv);
 
+  //DOUBT backend是指通信基于的环境？
   std::string backend = "MPI";
   parse_args(argc, argv, backend, start_size, max_size);
-
   if (backend == "MPI") {
     test_correctness<Al::MPIBackend>();
 #ifdef AL_HAS_NCCL
