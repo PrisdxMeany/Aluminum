@@ -72,6 +72,7 @@ constexpr int default_tag = 0;
  * This is used for requesting a particular algorithm. Use automatic to let the
  * library select for you.
  */
+// NOTE allreduce算法种类
 enum class MPIAllreduceAlgorithm {
   automatic,
   mpi_passthrough,
@@ -134,21 +135,26 @@ class MPIBackend {
   using req_type = internal::AlRequest;
   static constexpr std::nullptr_t null_req = nullptr;
 
+  // NOTE 最普通allreduce
   template <typename T>
   static void Allreduce(const T* sendbuf, T* recvbuf, size_t count,
                         ReductionOperator op, comm_type& comm,
                         allreduce_algo_type algo,
                         const int tag = internal::mpi::default_tag) {
+    // NOTE 检查消息大小是否在MPI规定范围内
     internal::mpi::assert_count_fits_mpi(count);
     if (algo == MPIAllreduceAlgorithm::automatic) {
+      // DOUBT 这是还没整完？？
       // TODO: Better algorithm selection/performance model.
       // TODO: Make tuneable.
+      // NOTE 根据消息大小选择算法 DOUBT 为啥只有两个？？
       if (count <= 1<<9) {
         algo = MPIAllreduceAlgorithm::mpi_recursive_doubling;
       } else {
         algo = MPIAllreduceAlgorithm::mpi_rabenseifner;
       }
     }
+    // TODO: 每种算法的原理特点区别了解
     switch (algo) {
       case MPIAllreduceAlgorithm::mpi_passthrough:
         internal::mpi::passthrough_allreduce(sendbuf, recvbuf, count, op, comm);

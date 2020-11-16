@@ -36,6 +36,9 @@ namespace internal {
 namespace mpi {
 
 /** Base state class for MPI allreduces. */
+// NOTE MPI Allreduce 的基本状态
+// DOUBT 具体有啥用 没看到用在哪了
+// ANSWER 用于各算法非阻塞的实现
 template <typename T>
 class MPIAlState : public AlState {
  public:
@@ -142,6 +145,7 @@ class MPIAlState : public AlState {
 };
 
 /** Just call MPI_Allreduce directly. */
+// DOUBT MPI默认的就是这个passthrough？
 template <typename T>
 void passthrough_allreduce(const T* sendbuf, T* recvbuf, size_t count,
                            ReductionOperator op, Communicator& comm) {
@@ -164,6 +168,7 @@ class MPIPassthroughAlState : public MPIAlState<T> {
     MPIAlState<T>(sendbuf_, recvbuf_, count_, op_, comm_, req_) {
     mpi_op = ReductionOperator2MPI_Op(op_);
   }
+  // DOUBT 这又是干啥用的？？
   bool setup() override {
     // Don't need to call the parent. Just start the MPI allreduce.
     if (this->sendbuf == IN_PLACE<T>()) {
@@ -190,6 +195,7 @@ class MPIPassthroughAlState : public MPIAlState<T> {
 };
 
 /** Just call MPI_Iallreduce directly. */
+// NOTE MPI_Iallreduce是非阻塞的
 template <typename T>
 void nb_passthrough_allreduce(const T* sendbuf, T* recvbuf, size_t count,
                               ReductionOperator op, Communicator& comm,
