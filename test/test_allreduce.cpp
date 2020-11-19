@@ -111,6 +111,7 @@ void test_correctness() {
   //ANSWER 第一个是获取阻塞的allreduce算法的，可以有多个，第二个是获取非阻塞的算法的，第三个猜测是文中提到将通信和计算绑定的
   auto algos = get_allreduce_algorithms<Backend>();
   auto nb_algos = get_nb_allreduce_algorithms<Backend>();
+  // DOUBT 不同文件里的重载函数有啥区别
   typename Backend::comm_type comm = get_comm_with_stream<Backend>(MPI_COMM_WORLD);
   // Compute sizes to test.
   std::vector<size_t> sizes = get_sizes(start_size, max_size, true);
