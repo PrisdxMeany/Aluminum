@@ -161,6 +161,7 @@ int main(int argc, char** argv) {
   Al::Initialize(argc, argv);
 
   //DOUBT backend是指通信基于的环境？
+  // ANSWER backend指的是基于的后端通信库
   std::string backend = "MPI";
   parse_args(argc, argv, backend, start_size, max_size);
   if (backend == "MPI") {

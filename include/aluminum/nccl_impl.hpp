@@ -789,6 +789,7 @@ class NCCLBackend {
 
   // These are thin wrappers around the actual NCCL calls.
   /** Do a NCCL allreduce. */
+  // NOTE 在NCCL外简单包装了下
   template <typename T>
   static void do_allreduce(const T* sendbuf, T* recvbuf, size_t count,
                            ReductionOperator op, comm_type& comm,
