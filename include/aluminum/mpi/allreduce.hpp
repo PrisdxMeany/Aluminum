@@ -145,6 +145,7 @@ class MPIAlState : public AlState {
 };
 
 /** Just call MPI_Allreduce directly. */
+// NOTE passthrough 直接调用MPI的Allreduce
 // DOUBT MPI默认的就是这个passthrough？
 template <typename T>
 void passthrough_allreduce(const T* sendbuf, T* recvbuf, size_t count,
@@ -169,6 +170,7 @@ class MPIPassthroughAlState : public MPIAlState<T> {
     mpi_op = ReductionOperator2MPI_Op(op_);
   }
   // DOUBT 这又是干啥用的？？
+  // ANSWER 这个类是passthrough非阻塞的实现，调用setup来启动操作，调用step来确保操作完成
   bool setup() override {
     // Don't need to call the parent. Just start the MPI allreduce.
     if (this->sendbuf == IN_PLACE<T>()) {
@@ -195,7 +197,7 @@ class MPIPassthroughAlState : public MPIAlState<T> {
 };
 
 /** Just call MPI_Iallreduce directly. */
-// NOTE MPI_Iallreduce是非阻塞的
+// NOTE 通过上面的类来实现非阻塞操作
 template <typename T>
 void nb_passthrough_allreduce(const T* sendbuf, T* recvbuf, size_t count,
                               ReductionOperator op, Communicator& comm,
@@ -210,6 +212,7 @@ void nb_passthrough_allreduce(const T* sendbuf, T* recvbuf, size_t count,
 }
 
 /** Use a recursive-doubling algorithm to perform the allreduce. */
+// NOTE recursive-doubling 主要利用MPI的send和recv来自己实现
 template <typename T>
 void recursive_doubling_allreduce(const T* sendbuf, T* recvbuf, size_t count,
                                   ReductionOperator op, Communicator& comm,
@@ -403,6 +406,9 @@ void nb_recursive_doubling_allreduce(const T* sendbuf, T* recvbuf, size_t count,
 }
 
 /** Use a ring-based reduce-scatter then allgather to perform the allreduce. */
+// NOTE ring 基于MPI实现 先reduce-scatter 再 allgather
+// DOUBT 为啥要用MPI实现，MPI不自带ring-allreduce吗？以及为啥不用MPI的scatter和allgather
+// DOUBT bidir 控制是否为biring，biring和ring有啥区别？
 template <typename T>
 void ring_allreduce(const T* sendbuf, T* recvbuf, size_t count,
                     ReductionOperator op, Communicator& comm, const bool bidir,
@@ -735,6 +741,7 @@ void nb_ring_allreduce(const T* sendbuf, T* recvbuf, size_t count,
  * Use Rabenseifner's algorithm (recursive halving/doubling) to perform the
  * allreduce.
  */
+// NOTE recursive havling/doubling (Rabenseifner) 主要使用MPI send和recv实现
 template <typename T>
 void rabenseifner_allreduce(const T* sendbuf, T* recvbuf, size_t count,
                             ReductionOperator op, Communicator& comm,

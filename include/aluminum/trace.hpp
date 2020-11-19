@@ -63,6 +63,8 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& v) {
 void save_trace_entry(std::string entry, bool progress = false);
 
 /** Record an operation to the trace log. */
+// NOTE 记录操作的信息，需要AL_TRACE的宏定义
+// NOTE 可以学下这里代码的写法
 template <typename Backend, typename T, typename... Args>
 #ifdef AL_TRACE
 void record_op(std::string op, typename Backend::comm_type& comm, Args... args) {

@@ -119,6 +119,8 @@ void Allreduce(const T* sendbuf, T* recvbuf, size_t count,
   internal::trace::record_op<Backend, T>("allreduce", comm, sendbuf, recvbuf,
                                          count);
   // DOUBT 这里干了啥 生成了allreduce函数 还是直接执行了allreduce算法，具体代码在哪
+  // ANSWER 这里执行基于不同Backend的allreduce操作，具体实现在不同的Backend类中
+  // DOUBT 这个template干啥用的？
   Backend::template Allreduce<T>(sendbuf, recvbuf, count, op, comm, algo);
 }
 

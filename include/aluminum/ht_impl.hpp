@@ -114,6 +114,7 @@ class HostTransferBackend {
                         ReductionOperator op, comm_type& comm,
                         allreduce_algo_type algo) {
     if (count == 0) return;
+    // NOTE 这里由于目前就一个所以也没有啥算法选择问题
     switch (algo) {
     case HostTransferAllreduceAlgorithm::automatic:
     case HostTransferAllreduceAlgorithm::host_transfer:
@@ -538,13 +539,17 @@ class HostTransferBackend {
   static void do_host_transfer_allreduce(
     const T* sendbuf, T* recvbuf, size_t count, ReductionOperator op,
     comm_type& comm, cudaStream_t internal_stream) {
+// DOUBT 这是什么操作？？？直接跳过？
 #if 0
     if (!internal::cuda::stream_memory_operations_supported()) {
       throw_al_exception("Host-transfer allreduce not supported without stream memory operations");
     }
 #endif // 0
+    // NOTE 创建了操作的状态对象，也就相当于操作的句柄
+    // NOTE 这里HostTransferState命名比较特殊，是专门针对Allreduce操作状态的类，其他如Allgather的就叫AllgatherAlState
     internal::ht::HostTransferState<T>* state = new internal::ht::HostTransferState<T>(
       sendbuf, recvbuf, count, op, comm, internal_stream, internal::get_free_request());
+    // NOTE 将操作送入后端处理引擎
     internal::get_progress_engine()->enqueue(state);
   }
 

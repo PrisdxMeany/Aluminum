@@ -135,7 +135,7 @@ class MPIBackend {
   using req_type = internal::AlRequest;
   static constexpr std::nullptr_t null_req = nullptr;
 
-  // NOTE 最普通allreduce
+  // NOTE 最普通allreduce 阻塞
   template <typename T>
   static void Allreduce(const T* sendbuf, T* recvbuf, size_t count,
                         ReductionOperator op, comm_type& comm,
@@ -145,6 +145,7 @@ class MPIBackend {
     internal::mpi::assert_count_fits_mpi(count);
     if (algo == MPIAllreduceAlgorithm::automatic) {
       // DOUBT 这是还没整完？？
+      // ANSWER 目前就在两个算法中进行选择，但实际上有5个可以选
       // TODO: Better algorithm selection/performance model.
       // TODO: Make tuneable.
       // NOTE 根据消息大小选择算法 DOUBT 为啥只有两个？？
@@ -176,7 +177,9 @@ class MPIBackend {
         throw_al_exception("Invalid algorithm for Allreduce");
     }
   }
-  
+
+  // NOTE 阻塞 in-place allreduce
+  // NOTE 就是在上面allreduce上将接收缓冲区同时作为发送缓冲区
   template <typename T>
   static void Allreduce(T* recvbuf, size_t count,
                         ReductionOperator op, comm_type& comm,
@@ -184,6 +187,7 @@ class MPIBackend {
     Allreduce(internal::IN_PLACE<T>(), recvbuf, count, op, comm, algo);
   }
 
+  // NOTE 非阻塞 allreduce
   template <typename T>
   static void NonblockingAllreduce(
       const T* sendbuf, T* recvbuf, size_t count,
@@ -222,6 +226,7 @@ class MPIBackend {
     }
   }
 
+  // 非阻塞 in-place allreduce
   template <typename T>
   static void NonblockingAllreduce(
       T* recvbuf, size_t count,

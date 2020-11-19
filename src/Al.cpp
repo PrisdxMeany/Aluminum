@@ -115,7 +115,8 @@ void Initialize(int& argc, char**& argv) {
   }
   //NOTE 初始化MPI
   internal::mpi::init(argc, argv);
-  //DOUBT ProgressEngine()
+  // DOUBT ProgressEngine()
+  // ANSWER 启动后台处理线程
   progress_engine = new internal::ProgressEngine();
   progress_engine->run();
   is_initialized = true;
