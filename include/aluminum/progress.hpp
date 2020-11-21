@@ -78,6 +78,7 @@ enum class RunType {
 };
 
 /** Actions a state can ask the progress engine to do. */
+// NOTE 该请求的状态转换
 enum class PEAction {
   /** Do nothing (i.e. keep running as it is now). */
   cont,

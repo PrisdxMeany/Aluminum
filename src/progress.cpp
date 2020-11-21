@@ -383,28 +383,38 @@ void ProgressEngine::engine() {
   // Set the current CUDA device for the thread.
   AL_CHECK_CUDA_NOSYNC(cudaSetDevice(cur_device.load()));
 #endif
+  // DOUBT bind()是啥呀
   bind();
   // Notify the main thread we're now running.
+  // NOTE 通知主进程后台线程运行
   {
     std::unique_lock<std::mutex> lock(startup_mutex);
+    // NOTE 标记后台线程是否启动
     started_flag = true;
   }
   startup_cv.notify_one();
+  // NOTE 当没有停止时
   while (!stop_flag.load(std::memory_order_acquire)) {
     // Check for newly-submitted requests.
+    // NOTE 查询新提交的请求
+    // NOTE 获取当前流并遍历
     size_t cur_input_streams = num_input_streams.load();
     for (size_t i = 0; i < cur_input_streams; ++i) {
       if (!request_queues[i].blocked) {
+        // NOTE 获取请求操作的句柄（状态）
         AlState* req = request_queues[i].q.peek();
         if (req != nullptr) {
           // Add to the correct run queue if one is available.
           bool do_start = false;
+          // NOTE 获取当前请求运行类型 有bounded和unbounded
+          // NOTE bounded 此类请求同时运行次数有限 unbounded 运行次数不受限
           switch (req->get_run_type()) {
           case RunType::bounded:
             // Move to the run queue if any of the following hold:
             //   1. num_bounded < AL_PE_NUM_CONCURRENT_OPS.
             //   2. The run_queue for this stream doesn't exist.
             //   3. The run_queue for this stream's first stage is empty.
+            // DOUBT run queue 和 流啥关系 一个请求就是一个流？一个流有一个run queue？
             if (num_bounded < AL_PE_NUM_CONCURRENT_OPS
                 || !run_queues.count(req->get_compute_stream())
                 || !run_queues[req->get_compute_stream()][0].size()) {
@@ -420,19 +430,28 @@ void ProgressEngine::engine() {
             // Add to end of first pipeline stage.
             // Create run queues if needed.
             if (!run_queues.count(req->get_compute_stream())) {
+              // NOTE emplace 构造并插入一个元素
               run_queues.emplace(req->get_compute_stream(),
                                  decltype(run_queues)::mapped_type{});
             }
+            // NOTE 将当前请求操作加入运行队列
+            // NOTE std::unordered_map<void*, std::array<std::vector<AlState*>, AL_PE_NUM_PIPELINE_STAGES>> run_queues;
+            // NOTE 第一个[]是map的key 第二个[]是array的索引 push_back是vector的操作
             run_queues[req->get_compute_stream()][0].push_back(req);
+            // NOTE 启动请求的操作
             req->start();
+// NOTE 一些分析用的            
 #ifdef AL_DEBUG_HANG_CHECK
             req->start_time = get_time();
 #endif
 #ifdef AL_TRACE
             trace::record_pe_start(*req);
 #endif
+            // NOTE 弹出请求
             request_queues[i].q.pop_always();
+            // DOUBT blocks()是个虚函数，一直返回false，其他子类里也没找到实现，是不是还用不上？
             if (req->blocks()) {
+              // NOTE 这里相当于将这个请求设置为阻塞的操作
               request_queues[i].blocked = true;
               blocking_reqs[req] = i;
             }
@@ -441,18 +460,25 @@ void ProgressEngine::engine() {
       }
     }
     // Process one step of each in-progress request.
+    // NOTE 开始处理运行队列中的操作
     for (auto&& stream_pipeline_pair : run_queues) {
+      // NOTE stream_pipeline_pair.second 类型 std::array<std::vector<AlState*>, AL_PE_NUM_PIPELINE_STAGES>
       auto&& pipeline = stream_pipeline_pair.second;
+      // NOTE 遍历整个array 遍历流水线的每个阶段
       for (size_t stage = 0; stage < AL_PE_NUM_PIPELINE_STAGES; ++stage) {
         // Process this stage of the pipeline.
+        // NOTE 处理该流水线的某个阶段 遍历该阶段内的请求
         for (auto i = pipeline[stage].begin(); i != pipeline[stage].end();) {
           AlState* req = *i;
           // Simply skip over paused states.
+          // NOTE 跳过暂停的请求
           if (req->paused_for_advance) {
             ++i;
           } else {
+            // NOTE 获取请求操作的下一步状态
             PEAction action = req->step();
             switch (action) {
+            // NOTE 保持现状 继续运行
             case PEAction::cont:
               // Nothing to do here.
 #ifdef AL_DEBUG_HANG_CHECK
@@ -473,7 +499,9 @@ void ProgressEngine::engine() {
 #endif
               ++i;
               break;
+            // NOTE 进入流水线下一阶段
             case PEAction::advance:
+// NOTE 学学调试写法
 #ifdef AL_DEBUG
               // Ensure we don't advance too far.
               if (stage + 1 >= AL_PE_NUM_PIPELINE_STAGES) {
@@ -481,6 +509,7 @@ void ProgressEngine::engine() {
               }
 #endif
               // Only move if this is the head of the pipeline stage.
+              // NOTE 流水线头部的请求才能跳到下一阶段 否则暂停执行
               if (i == pipeline[stage].begin()) {
                 pipeline[stage+1].push_back(req);
                 i = pipeline[stage].erase(i);
@@ -489,13 +518,17 @@ void ProgressEngine::engine() {
                 ++i;
               }
               break;
+            // NOTE 指令执行完成
             case PEAction::complete:
+              // NOTE needs_completion : True if this is meant to be waited on by the user.
               if (req->needs_completion()) {
                 req->get_req()->store(true, std::memory_order_release);
               }
+              // NOTE 为受限的指令腾出空位
               if (req->get_run_type() == RunType::bounded) {
                 --num_bounded;
               }
+              // DOUBT 哪里处理了阻塞的请求？
               if (req->blocks()) {
                 // Unblock the associated input queue.
                 request_queues[blocking_reqs[req]].blocked = false;
@@ -514,8 +547,10 @@ void ProgressEngine::engine() {
           }
         }
         // Check whether we can advance paused states.
+        // NOTE 判断是否可以推进暂停的请求
         for (auto i = pipeline[stage].begin(); i != pipeline[stage].end();) {
           AlState* req = *i;
+          // DOUBT 这里再推进除了流水线的首个请求而不是直接在上面推进是为了保持请求处理的顺序？
           if (req->paused_for_advance) {
             // Move to the next stage.
             req->paused_for_advance = false;
